@@ -13,5 +13,7 @@ public class FakeDb implements StudentRepo {
         return rows.size(); 
     }
 
-    public List<StudentRecord> all() { return Collections.unmodifiableList(rows); }
+    public List<StudentRecord> all() { 
+        return Collections.unmodifiableList(rows); 
+    }
 }
