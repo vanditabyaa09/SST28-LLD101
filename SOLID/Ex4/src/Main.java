@@ -6,5 +6,6 @@ public class Main {
         BookingRequest req = new BookingRequest(LegacyRoomTypes.DOUBLE, List.of(AddOn.LAUNDRY, AddOn.MESS));
         HostelFeeCalculator calc = new HostelFeeCalculator(new FakeBookingRepo());
         calc.process(req);
+
     }
 }
