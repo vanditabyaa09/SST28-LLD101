@@ -7,36 +7,41 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * INTENTION: Global metrics registry (should be a Singleton).
+ * Global metrics registry — a proper, thread-safe, lazy-initialized Singleton.
  *
- * CURRENT STATE (BROKEN ON PURPOSE):
- * - Constructor is public -> anyone can create instances.
- * - getInstance() is lazy but NOT thread-safe -> can create multiple instances.
- * - Reflection can call the constructor to create more instances.
- * - Serialization can create a new instance when deserialized.
- *
- * TODO (student):
- *  1) Make it a proper lazy, thread-safe singleton (private ctor)
- *  2) Block reflection-based multiple construction
- *  3) Preserve singleton on serialization (readResolve)
+ * Protections:
+ * 1) Private constructor — prevents external instantiation
+ * 2) Double-checked locking with volatile — thread-safe lazy init
+ * 3) Reflection guard — throws exception if constructor called when instance
+ * exists
+ * 4) readResolve() — preserves singleton across serialization/deserialization
  */
 public class MetricsRegistry implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private static MetricsRegistry INSTANCE; // BROKEN: not volatile, not thread-safe
+    // volatile ensures visibility of the INSTANCE reference across threads
+    private static volatile MetricsRegistry INSTANCE;
     private final Map<String, Long> counters = new HashMap<>();
 
-    // BROKEN: should be private and should prevent second construction
-    public MetricsRegistry() {
-        // intentionally empty
+    // Private constructor + reflection guard
+    private MetricsRegistry() {
+        // If someone tries to use reflection to create a second instance, block it
+        if (INSTANCE != null) {
+            throw new IllegalStateException(
+                    "Singleton already constructed — use MetricsRegistry.getInstance()");
+        }
     }
 
-    // BROKEN: racy lazy init; two threads can create two instances
+    // Double-checked locking: lazy, thread-safe singleton initialization
     public static MetricsRegistry getInstance() {
-        if (INSTANCE == null) {
-            INSTANCE = new MetricsRegistry();
+        if (INSTANCE == null) { // 1st check (no lock)
+            synchronized (MetricsRegistry.class) { // lock
+                if (INSTANCE == null) { // 2nd check (with lock)
+                    INSTANCE = new MetricsRegistry();
+                }
+            }
         }
         return INSTANCE;
     }
@@ -57,5 +62,9 @@ public class MetricsRegistry implements Serializable {
         return Collections.unmodifiableMap(new HashMap<>(counters));
     }
 
-    // TODO: implement readResolve() to preserve singleton on deserialization
+    // Preserve singleton on deserialization — return the existing instance
+    @Serial
+    protected Object readResolve() {
+        return getInstance();
+    }
 }
